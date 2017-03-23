@@ -17,15 +17,16 @@
  */
 package com.dtstack.jlogstash.log;
 
-import ch.qos.logback.classic.Logger;
-import org.slf4j.LoggerFactory;
-import com.dtstack.jlogstash.assembly.CmdLineParams;
 import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.rolling.RollingFileAppender;
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy;
+import com.dtstack.jlogstash.assembly.CmdLineParams;
+import org.slf4j.LoggerFactory;
 
 /**
  * 
@@ -68,7 +69,15 @@ public class LogbackComponent extends LogComponent{
         appender.setEncoder(encoder);
         appender.setPrudent(true); //support that multiple JVMs can safely write to the same file.
         appender.start();
+
+        // 添加console Appender
+		ConsoleAppender<ILoggingEvent> consoleAppender = new ConsoleAppender<ILoggingEvent>();
+		consoleAppender.setContext(loggerContext);
+		consoleAppender.setEncoder(encoder);
+		consoleAppender.start();
+
         newLogger.addAppender(appender);
+		newLogger.addAppender(consoleAppender);
         //setup level
         setLevel(newLogger);
         //remove the appenders that inherited 'ROOT'.

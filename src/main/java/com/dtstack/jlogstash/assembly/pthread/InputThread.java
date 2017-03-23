@@ -17,14 +17,13 @@
  */
 package com.dtstack.jlogstash.assembly.pthread;
 
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+import com.dtstack.jlogstash.inputs.BaseInput;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.dtstack.jlogstash.inputs.BaseInput;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 
@@ -48,7 +47,6 @@ public class InputThread implements Runnable{
 
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
 		if(baseInput==null){
 			logger.error("input plugin is not null");
 			System.exit(1);
@@ -57,7 +55,6 @@ public class InputThread implements Runnable{
 	}
 	
 	public static void initInputThread(List<BaseInput> baseInputs) {
-		// TODO Auto-generated method stub
 		if(inputExecutor==null)inputExecutor= Executors.newFixedThreadPool(baseInputs.size());
 		for(BaseInput input:baseInputs){
 			inputExecutor.submit(new InputThread(input));

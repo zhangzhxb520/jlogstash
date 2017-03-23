@@ -17,14 +17,13 @@
  */
 package com.dtstack.jlogstash;
 
+import com.dtstack.jlogstash.assembly.AssemblyPipeline;
+import com.dtstack.jlogstash.assembly.CmdLineParams;
+import com.dtstack.jlogstash.log.LogComponent;
+import com.dtstack.jlogstash.log.LogbackComponent;
 import org.apache.commons.cli.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.dtstack.jlogstash.assembly.AssemblyPipeline;
-import com.dtstack.jlogstash.assembly.CmdLineParams;
-import com.dtstack.jlogstash.exception.ExceptionUtil;
-import com.dtstack.jlogstash.log.LogComponent;
-import com.dtstack.jlogstash.log.LogbackComponent;
 
 /**
  * 
@@ -50,7 +49,7 @@ public class Main {
             //assembly pipeline
             assemblyPipeline.assemblyPipeline();
 		} catch (Exception e) {
-			logger.error("jlogstash start error:{}",ExceptionUtil.getErrorMessage(e));
+			logger.error("jlogstash start error", e);
 			System.exit(-1);
 		}
 	}

@@ -17,14 +17,13 @@
  */
 package com.dtstack.jlogstash.assembly;
 
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.dtstack.jlogstash.assembly.qlist.QueueList;
 import com.dtstack.jlogstash.inputs.BaseInput;
 import com.dtstack.jlogstash.outputs.BaseOutput;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 /**
  * 
@@ -90,7 +89,6 @@ public class ShutDownHook {
 
 		@Override
 		public void run() {
-			// TODO Auto-generated method stub
 			inputRelease();
 			if(initInputQueueList!=null)initInputQueueList.queueRelease();
 			if(initOutputQueueList!=null)initOutputQueueList.queueRelease();

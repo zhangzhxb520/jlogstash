@@ -17,6 +17,9 @@
  */
 package com.dtstack.jlogstash.assembly.qlist;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -24,8 +27,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -79,7 +80,6 @@ public class InputQueueList extends QueueList{
 				queueList.get(pIndex.get()).put(message);
 			}
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			logger.error("put message error:", e);
 		}finally{
 			if(ato.get()){
@@ -116,7 +116,10 @@ public class InputQueueList extends QueueList{
 				}
 			}
 	}
-	
+
+	/**
+	 * 选取剩余容量较大的队列
+	 */
 	class ElectionIdleQueue implements Runnable {
 
 		@Override
