@@ -17,19 +17,18 @@
  */
 package com.dtstack.jlogstash.assembly.pthread;
 
+import com.dtstack.jlogstash.assembly.qlist.OutPutQueueList;
+import com.dtstack.jlogstash.exception.ExceptionUtil;
+import com.dtstack.jlogstash.factory.OutputFactory;
+import com.dtstack.jlogstash.outputs.BaseOutput;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.dtstack.jlogstash.assembly.qlist.OutPutQueueList;
-import com.dtstack.jlogstash.exception.ExceptionUtil;
-import com.dtstack.jlogstash.factory.OutputFactory;
-import com.dtstack.jlogstash.outputs.BaseOutput;
 
 /**
  * 
@@ -83,8 +82,7 @@ public class OutputThread implements Runnable{
 				}		
 			} 
 	    }catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("{}:output event failed:{}",event, ExceptionUtil.getErrorMessage(e));
+		    logger.error("{}:output event failed:{}",event, ExceptionUtil.getErrorMessage(e));
 		}
 	}
 	

@@ -17,19 +17,18 @@
  */
 package com.dtstack.jlogstash.classloader;
 
+import com.dtstack.jlogstash.exception.ExceptionUtil;
+import com.dtstack.jlogstash.exception.LogstashException;
+import com.google.common.collect.Maps;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.dtstack.jlogstash.exception.ExceptionUtil;
-import com.dtstack.jlogstash.exception.LogstashException;
-import com.google.common.collect.Maps;
 
 /**
  * 
@@ -60,7 +59,7 @@ public class JarClassLoader {
 		URL[] urls =  jarUrls.get(name);
 		ClassLoader classLoader = this.getClass().getClassLoader();
 		if(urls==null || urls.length==0){
-			 logger.warn("{}:load by AppclassLoader",name);
+			 logger.warn("{}:load by AppClassLoader",name);
 			 return classLoader;
 		}
 		return new URLClassLoader(urls,classLoader);

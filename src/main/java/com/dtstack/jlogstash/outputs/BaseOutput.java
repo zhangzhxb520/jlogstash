@@ -17,19 +17,18 @@
  */
 package com.dtstack.jlogstash.outputs;
 
+import com.dtstack.jlogstash.render.FreeMarkerRender;
+import com.dtstack.jlogstash.render.TemplateRender;
+import com.google.common.collect.Queues;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.dtstack.jlogstash.render.FreeMarkerRender;
-import com.dtstack.jlogstash.render.TemplateRender;
-import com.google.common.collect.Queues;
 
 /**
  * 
@@ -101,7 +100,7 @@ public abstract class BaseOutput implements Cloneable, java.io.Serializable{
 					}
 				}
 			}
-			if (succuess == true) {
+			if (succuess) {
 				this.emit(event);
 			}
 		}
