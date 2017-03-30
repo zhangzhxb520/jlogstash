@@ -19,6 +19,7 @@ package com.dtstack.jlogstash.assembly.pthread;
 
 import com.dtstack.jlogstash.assembly.qlist.InputQueueList;
 import com.dtstack.jlogstash.assembly.qlist.OutPutQueueList;
+import com.dtstack.jlogstash.callback.FilterThreadSetter;
 import com.dtstack.jlogstash.exception.ExceptionUtil;
 import com.dtstack.jlogstash.factory.FilterFactory;
 import com.dtstack.jlogstash.filters.BaseFilter;
@@ -32,12 +33,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- *
- * Reason: TODO ADD REASON(可选) 
- * Date: 2016年11月29日 下午15:30:18 
+ * Reason: TODO ADD REASON(可选)
+ * Date: 2016年11月29日 下午15:30:18
  * Company:www.dtstack.com
- * @author sishu.yss
  *
+ * @author sishu.yss
  */
 public class FilterThread implements Runnable {
 
@@ -53,13 +53,27 @@ public class FilterThread implements Runnable {
     }
 
     @SuppressWarnings("rawtypes")
-    public static void initFilterThread(List<Map> filters, InputQueueList inPutQueueList, OutPutQueueList outPutQueueList) throws Exception {
+    public static void initFilterThread(List<Map> filters, InputQueueList inPutQueueList, OutPutQueueList outPutQueueList, List<BaseFilter> allBaseFilters) throws Exception {
         if (filterExecutor == null) filterExecutor = Executors.newFixedThreadPool(inPutQueueList.getQueueList().size());
         FilterThread.outPutQueueList = outPutQueueList;
         for (BlockingQueue<Map<String, Object>> queueList : inPutQueueList.getQueueList()) {
             List<BaseFilter> baseFilters = FilterFactory.getBatchInstance(filters);
-            filterExecutor.submit(new FilterThread(baseFilters, queueList));
+            allBaseFilters.addAll(baseFilters);
+
+            FilterThread filterThread = new FilterThread(baseFilters, queueList);
+
+            // 设置回调
+            for (BaseFilter baseFilter : baseFilters) {
+                if (baseFilter instanceof FilterThreadSetter) {
+                    ((FilterThreadSetter) baseFilter).setFilterThread(filterThread);
+                }
+            }
+            filterExecutor.submit(filterThread);
         }
+    }
+
+    public static void put(Map<String, Object> event) {
+        outPutQueueList.put(event);
     }
 
     @Override
@@ -81,5 +95,9 @@ public class FilterThread implements Runnable {
                 logger.error("{}:filter event failed:{}", event, ExceptionUtil.getErrorMessage(e));
             }
         }
+    }
+
+    public List<BaseFilter> getFilterProcessors() {
+        return filterProcessors;
     }
 }
