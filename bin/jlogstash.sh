@@ -3,7 +3,7 @@
 HO_HEAP_SIZE="${HO_HEAP_SIZE:=300m}"
 
 unset CDPATH
-export basedir=$(cd `dirname $0`/..; pwd)
+export BASE_DIR=$(cd `dirname $0`/..; pwd)
 
 JAVA_OPTS="$JAVA_OPTS -Xmx${HO_HEAP_SIZE}"
 
@@ -11,9 +11,9 @@ JAVA_OPTS="$JAVA_OPTS -Xms${HO_HEAP_SIZE}"
 
 JAVA_OPTS="$JAVA_OPTS -server"
 
-JAVA_OPTS="$JAVA_OPTS -Xloggc:../logs/jlogstash.gc"
+JAVA_OPTS="$JAVA_OPTS -Xloggc:${BASE_DIR}/logs/jlogstash.gc"
 
-JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=../logs/heapdump.hprof"
+JAVA_OPTS="$JAVA_OPTS -XX:HeapDumpPath=${BASE_DIR}/logs/heapdump.hprof"
 
 
 #-XX:MaxDirectMemorySize=16M According to owner memory
@@ -22,4 +22,4 @@ JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOcc
 #Comment to speed up starting time 
 #JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
 
-exec java $JAVA_OPTS -cp $basedir/lib/* com.dtstack.jlogstash.Main "$@"
+exec java $JAVA_OPTS -cp $BASE_DIR/lib/* com.dtstack.jlogstash.Main "$@"
