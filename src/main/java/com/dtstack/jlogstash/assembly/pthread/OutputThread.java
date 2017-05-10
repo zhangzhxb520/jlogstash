@@ -18,7 +18,6 @@
 package com.dtstack.jlogstash.assembly.pthread;
 
 import com.dtstack.jlogstash.assembly.qlist.OutPutQueueList;
-import com.dtstack.jlogstash.exception.ExceptionUtil;
 import com.dtstack.jlogstash.factory.OutputFactory;
 import com.dtstack.jlogstash.outputs.BaseOutput;
 import org.slf4j.Logger;
@@ -41,12 +40,8 @@ import java.util.concurrent.Executors;
 public class OutputThread implements Runnable{
 	
 	private static Logger logger = LoggerFactory.getLogger(OutputThread.class);
-	
-	
-	private List<BaseOutput> outputProcessors;
-	
 	private static ExecutorService outputExecutor;
-	
+	private List<BaseOutput> outputProcessors;
 	private BlockingQueue<Map<String, Object>> outputQueue;
 
 
@@ -82,7 +77,7 @@ public class OutputThread implements Runnable{
 				}		
 			} 
 	    }catch (Exception e) {
-		    logger.error("{}:output event failed:{}",event, ExceptionUtil.getErrorMessage(e));
+		    logger.error(String.format("%s：output event failed", event), e);
 		}
 	}
 	

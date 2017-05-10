@@ -58,14 +58,17 @@ public class FilterThread implements Runnable {
         FilterThread.outPutQueueList = outPutQueueList;
         for (BlockingQueue<Map<String, Object>> queueList : inPutQueueList.getQueueList()) {
             List<BaseFilter> baseFilters = FilterFactory.getBatchInstance(filters);
-            allBaseFilters.addAll(baseFilters);
-
+            if(baseFilters != null) {
+                allBaseFilters.addAll(baseFilters);
+            }
             FilterThread filterThread = new FilterThread(baseFilters, queueList);
 
             // 设置回调
-            for (BaseFilter baseFilter : baseFilters) {
-                if (baseFilter instanceof FilterThreadSetter) {
-                    ((FilterThreadSetter) baseFilter).setFilterThread(filterThread);
+            if(baseFilters != null) {
+                for (BaseFilter baseFilter : baseFilters) {
+                    if (baseFilter instanceof FilterThreadSetter) {
+                        ((FilterThreadSetter) baseFilter).setFilterThread(filterThread);
+                    }
                 }
             }
             filterExecutor.submit(filterThread);

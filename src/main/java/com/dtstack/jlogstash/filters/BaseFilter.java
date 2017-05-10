@@ -57,6 +57,7 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
                 event = this.filter(event);
                 this.postProcess(event, true);
             } catch (Exception e) {
+                logger.error("process error", e);
                 this.postProcess(event, false);
             }
         }
