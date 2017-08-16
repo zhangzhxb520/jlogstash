@@ -67,6 +67,7 @@ public class LogbackComponent extends LogComponent{
         appender.setRollingPolicy(policy);
         appender.setContext(loggerContext);
         appender.setEncoder(encoder);
+        // appender.addFilter();
         appender.setPrudent(true); //support that multiple JVMs can safely write to the same file.
         appender.start();
 
@@ -79,9 +80,12 @@ public class LogbackComponent extends LogComponent{
         newLogger.addAppender(appender);
 		newLogger.addAppender(consoleAppender);
         //setup level
-        setLevel(newLogger);
+		newLogger.setLevel(Level.WARN);
         //remove the appenders that inherited 'ROOT'.
         newLogger.setAdditive(false);
+
+        Logger dtStackLogger = loggerContext.getLogger("com.dtstack");
+        setLevel(dtStackLogger);
 	}
 	
 	private String formateLogFile(String file){

@@ -36,8 +36,10 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
 
     private static final long serialVersionUID = -6525215605315577598L;
     private static final Logger logger = LoggerFactory.getLogger(BaseFilter.class);
+    private static final Object NULL = new Object();
     protected Map config;
     protected String tagOnFailure;
+    protected String IF;
     protected ArrayList<String> removeFields;
 
     public BaseFilter(Map config) {
@@ -54,8 +56,23 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
     public Map process(Map event) {
         if (event != null && event.size() > 0) {
             try {
-                event = this.filter(event);
-                this.postProcess(event, true);
+                boolean forward = true;
+                if (IF != null && IF.length() > 0) {
+                    Object ifValue = event.get(IF);
+                    if (ifValue == null || ifValue == Boolean.FALSE) {
+                        forward = false;
+                    }
+                }
+
+                if (forward) {
+                    long startTime = System.currentTimeMillis();
+
+                    event = this.filter(event);
+                    this.postProcess(event, true);
+
+                    long endTime = System.currentTimeMillis();
+                    logger.debug("过滤器：{}处理一条数据耗时：{}毫秒", this.getClass().getSimpleName(), (endTime - startTime));
+                }
             } catch (Exception e) {
                 logger.error("process error", e);
                 this.postProcess(event, false);
@@ -65,12 +82,6 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
     }
 
     protected abstract Map filter(Map event);
-
-    /**
-     * 在jvm退出时调用，子类可以选择重写该方法以释放资源
-     */
-    public void release() {
-    }
 
     @SuppressWarnings("unchecked")
     public void postProcess(Map event, boolean ifsuccess) {
@@ -82,6 +93,11 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
         }
     }
 
+    /**
+     * 在jvm退出时调用，子类可以选择重写该方法以释放资源
+     */
+    public void release() {
+    }
 
     @Override
     public Object clone() throws CloneNotSupportedException {
