@@ -17,15 +17,15 @@
  */
 package com.dtstack.jlogstash.render;
 
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
@@ -78,7 +78,12 @@ public class Formatter {
 					}
 				}
 			} else if (event.containsKey(key)) {
-				m.appendReplacement(sb, event.get(key).toString());
+				Object value = event.get(key);
+				if (value != null) {
+					m.appendReplacement(sb, value.toString());
+				} else {
+					m.appendReplacement(sb, "null");
+				}
 			}
 
 		}

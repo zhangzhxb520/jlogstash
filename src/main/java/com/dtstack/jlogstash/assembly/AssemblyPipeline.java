@@ -36,12 +36,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
- * Reason: TODO ADD REASON(可选)
  * Date: 2016年8月31日 下午1:25:11
  * Company: www.dtstack.com
- * @author sishu.yss
  *
+ * @author sishu.yss
  */
 public class AssemblyPipeline {
 
@@ -62,12 +60,16 @@ public class AssemblyPipeline {
         logger.debug("load config start ...");
         Map configs = new YamlConfig().parse(CmdLineParams.getConfigFilePath());
         logger.debug(configs.toString());
+
+        // 初始化输入队列
         logger.debug("initInputQueueList start ...");
         initInputQueueList = InputQueueList.getInputQueueListInstance(CmdLineParams.getFilterWork(), CmdLineParams.getInputQueueSize());
         List<Map> inputs = (List<Map>) configs.get("inputs");
         if (inputs == null || inputs.size() == 0) {
             throw new LogstashException("input plugin is not empty");
         }
+
+        // 初始化输出队列
         initOutputQueueList = OutPutQueueList.getOutPutQueueListInstance(CmdLineParams.getOutputWork(), CmdLineParams.getOutputQueueSize());
         List<Map> outputs = (List<Map>) configs.get("outputs");
         if (outputs == null || outputs.size() == 0) {
@@ -75,14 +77,19 @@ public class AssemblyPipeline {
         }
         List<Map> filters = (List<Map>) configs.get("filters");
         baseInputs = InputFactory.getBatchInstance(inputs, initInputQueueList);
+
+        // 初始化需要完成的输入
+        ShutDownHelper.initInputCount(baseInputs.size());
+
+        // 开始运行
         InputThread.initInputThread(baseInputs);
         FilterThread.initFilterThread(filters, initInputQueueList, initOutputQueueList, allBaseFilters);
         OutputThread.initOutPutThread(outputs, initOutputQueueList, allBaseOutputs);
-        addShutDownHook();
-    }
 
-    private void addShutDownHook() {
-        ShutDownHook shutDownHook = new ShutDownHook(initInputQueueList, initOutputQueueList, baseInputs, allBaseOutputs, allBaseFilters);
-        shutDownHook.addShutDownHook();
+        // 添加回调钩子
+        ShutDownHelper.addShutDownHook(initInputQueueList, initOutputQueueList, baseInputs, allBaseOutputs, allBaseFilters);
+
+        // 标识已完成初始化
+        ShutDownHelper.finishInit();
     }
 }

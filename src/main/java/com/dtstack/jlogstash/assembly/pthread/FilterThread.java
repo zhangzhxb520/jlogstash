@@ -20,9 +20,9 @@ package com.dtstack.jlogstash.assembly.pthread;
 import com.dtstack.jlogstash.assembly.qlist.InputQueueList;
 import com.dtstack.jlogstash.assembly.qlist.OutPutQueueList;
 import com.dtstack.jlogstash.callback.FilterThreadSetter;
-import com.dtstack.jlogstash.exception.ExceptionUtil;
 import com.dtstack.jlogstash.factory.FilterFactory;
 import com.dtstack.jlogstash.filters.BaseFilter;
+import com.dtstack.jlogstash.utils.ThreadPoolUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Reason: TODO ADD REASON(可选)
@@ -41,11 +41,14 @@ import java.util.concurrent.Executors;
  */
 public class FilterThread implements Runnable {
 
+    public static final int QUEUE_CAPACITY = 5000;
+    public static final String THREAD_NAME = "FilterThread";
     private static Logger logger = LoggerFactory.getLogger(FilterThread.class);
     private static OutPutQueueList outPutQueueList;
     private static ExecutorService filterExecutor;
     private BlockingQueue<Map<String, Object>> inputQueue;
     private List<BaseFilter> filterProcessors;
+    private static AtomicInteger inFilterEventCount = new AtomicInteger(0);
 
     public FilterThread(List<BaseFilter> filterProcessors, BlockingQueue<Map<String, Object>> inputQueue) {
         this.filterProcessors = filterProcessors;
@@ -54,17 +57,20 @@ public class FilterThread implements Runnable {
 
     @SuppressWarnings("rawtypes")
     public static void initFilterThread(List<Map> filters, InputQueueList inPutQueueList, OutPutQueueList outPutQueueList, List<BaseFilter> allBaseFilters) throws Exception {
-        if (filterExecutor == null) filterExecutor = Executors.newFixedThreadPool(inPutQueueList.getQueueList().size());
+        if (filterExecutor == null) {
+            filterExecutor = ThreadPoolUtil.newFixedThreadPool(inPutQueueList.getQueueList().size(), QUEUE_CAPACITY, THREAD_NAME);
+        }
+
         FilterThread.outPutQueueList = outPutQueueList;
         for (BlockingQueue<Map<String, Object>> queueList : inPutQueueList.getQueueList()) {
             List<BaseFilter> baseFilters = FilterFactory.getBatchInstance(filters);
-            if(baseFilters != null) {
+            if (baseFilters != null) {
                 allBaseFilters.addAll(baseFilters);
             }
             FilterThread filterThread = new FilterThread(baseFilters, queueList);
 
             // 设置回调
-            if(baseFilters != null) {
+            if (baseFilters != null) {
                 for (BaseFilter baseFilter : baseFilters) {
                     if (baseFilter instanceof FilterThreadSetter) {
                         ((FilterThreadSetter) baseFilter).setFilterThread(filterThread);
@@ -79,13 +85,29 @@ public class FilterThread implements Runnable {
         outPutQueueList.put(event);
     }
 
+    public static void shutDownExecutor() {
+        if (filterExecutor != null) {
+            // 如果还有event正在filter中被处理时，将一直等待所有的FilterThread将任务处理完成
+            while (inFilterEventCount.get() > 0){
+                try {
+                    Thread.sleep(5);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            // 此时所有的FilterThread阻塞在this.inputQueue.take()片，利用中断退出线程
+            filterExecutor.shutdownNow();
+        }
+    }
+
     @Override
     public void run() {
-        A:
-        while (true) {
-            Map<String, Object> event = null;
-            try {
-                event = this.inputQueue.take();
+        try {
+            A:
+            while (!Thread.currentThread().isInterrupted()) {
+                Map<String, Object> event = this.inputQueue.take();
+                inFilterEventCount.incrementAndGet();
                 if (filterProcessors != null) {
                     for (BaseFilter bf : filterProcessors) {
                         if (event == null || event.size() == 0)
@@ -93,10 +115,11 @@ public class FilterThread implements Runnable {
                         event = bf.process(event);
                     }
                 }
+                inFilterEventCount.decrementAndGet();
                 if (event != null) outPutQueueList.put(event);
-            } catch (Exception e) {
-                logger.error("{}:filter event failed:{}", event, ExceptionUtil.getErrorMessage(e));
             }
+        } catch (InterruptedException e) {
+            logger.error("FilterThread被中断", e);
         }
     }
 

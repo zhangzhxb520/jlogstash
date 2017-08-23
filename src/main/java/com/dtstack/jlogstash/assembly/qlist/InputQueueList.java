@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,121 +30,115 @@ import java.util.concurrent.locks.ReentrantLock;
 
 
 /**
- * 
  * Reason: TODO ADD REASON(可选)
  * Date: 2016年8月31日 下午1:25:23
  * Company: www.dtstack.com
- * @author sishu.yss
  *
+ * @author sishu.yss
  */
-public class InputQueueList extends QueueList{
+public class InputQueueList extends QueueList {
 
-	private static Logger logger = LoggerFactory.getLogger(InputQueueList.class);
-    
-	private static ExecutorService executor = Executors.newFixedThreadPool(1);
+    private static Logger logger = LoggerFactory.getLogger(InputQueueList.class);
 
-	private final AtomicInteger pIndex = new AtomicInteger(0);
-	
-	private static int SLEEP = 1;//queue选取的间隔时间
-	
-	private static InputQueueList inputQueueList;
-	
-    private static int releaseSleep =1000;
+    private static ExecutorService executor = Executors.newFixedThreadPool(1);
+    private static int SLEEP = 1;//queue选取的间隔时间
+    private static InputQueueList inputQueueList;
+    private static int releaseSleep = 1000;
+    private final AtomicInteger pIndex = new AtomicInteger(0);
+    protected AtomicBoolean ato = new AtomicBoolean(false);
 
-	protected AtomicBoolean ato = new AtomicBoolean(false);
+    protected ReentrantLock lock = new ReentrantLock();
 
-	protected ReentrantLock lock = new ReentrantLock();
-	
-	public static InputQueueList getInputQueueListInstance(int queueNumber,int queueSize){
-		if(inputQueueList!=null)return inputQueueList;
-		inputQueueList = new InputQueueList();
-        for(int i=0;i<queueNumber;i++){
-        	inputQueueList.queueList.add(new ArrayBlockingQueue<Map<String,Object>>(queueSize));
+    public static InputQueueList getInputQueueListInstance(int queueNumber, int queueSize) {
+        if (inputQueueList != null) return inputQueueList;
+        inputQueueList = new InputQueueList();
+        for (int i = 0; i < queueNumber; i++) {
+            inputQueueList.queueList.add(new ArrayBlockingQueue<Map<String, Object>>(queueSize));
         }
         inputQueueList.startElectionIdleQueue();
-		return inputQueueList;
-	}
-	
+        return inputQueueList;
+    }
 
-	@Override
-	public void put(Map<String, Object> message) {
-		try {
-			if (ato.get()) {
-				try {
-					lock.lockInterruptibly();;
-					queueList.get(pIndex.get()).put(message);
-				} finally {
-					lock.unlock();
-				}
-			} else {
-				queueList.get(pIndex.get()).put(message);
-			}
-		} catch (InterruptedException e) {
-			logger.error("put message error:", e);
-		}finally{
-			if(ato.get()){
-				lock.unlock();
-			}
-		}
-	}
-		
-	@Override
-	public void startElectionIdleQueue(){
-		executor.submit(new ElectionIdleQueue());
-	}
-	
-	@Override
-	public void queueRelease(){
-			try{
-                lock.lockInterruptibly();
-				ato.getAndSet(true);
-				Thread.sleep(releaseSleep);
-				boolean empty =allQueueEmpty();
-				while(!empty){
-					empty =allQueueEmpty();
-				}
-				logger.warn("queue size=="+allQueueSize());
-			    logger.warn("inputQueueRelease success ...");
-			}catch(Exception e){
-			    logger.error("inputQueueRelease error:{}",e.getMessage());
-			}
-			finally{
-				try{
-					lock.unlock();
-				}catch(Exception e){
-				    logger.error("inputQueueRelease error:{}",e.getMessage());
-				}
-			}
-	}
 
-	/**
-	 * 选取剩余容量较大的队列
-	 */
-	class ElectionIdleQueue implements Runnable {
+    @Override
+    public void put(Map<String, Object> message) {
+        try {
+            if (ato.get()) {
+                try {
+                    lock.lockInterruptibly();
+                    queueList.get(pIndex.get()).put(message);
+                } finally {
+                    lock.unlock();
+                }
+            } else {
+                queueList.get(pIndex.get()).put(message);
+            }
+        } catch (InterruptedException e) {
+            logger.error("put message error:", e);
+        } finally {
+            if (ato.get()) {
+                lock.unlock();
+            }
+        }
+    }
 
-		@Override
-		public void run() {
-			// TODO Auto-generated method stub
-			int size = queueList.size();
-			while (true) {
-				try {
-					if (size > 0) {
-						int id = 0;
-						int sz = Integer.MAX_VALUE;
-						for (int i = 0; i < size; i++) {
-							int ssz = queueList.get(i).size();
-							if (ssz <= sz) {
-								sz = ssz;
-								id = i;
-							}
-						}
-						pIndex.getAndSet(id);
-					}
-					Thread.sleep(SLEEP);
-				} catch (Exception e) {
-					logger.error("input electionIdleQueue is error:{}",e.getCause());
-				}
-			}
-		}
-	}
+    @Override
+    public void startElectionIdleQueue() {
+        executor.submit(new ElectionIdleQueue());
+    }
+
+    @Override
+    public void queueRelease() {
+        try {
+            lock.lockInterruptibly();
+            ato.getAndSet(true);
+            Thread.sleep(releaseSleep);
+            boolean empty = allQueueEmpty();
+            while (!empty) {
+                empty = allQueueEmpty();
+            }
+            logger.warn("queue size==" + allQueueSize());
+            logger.warn("inputQueueRelease success ...");
+        } catch (Exception e) {
+            logger.error("inputQueueRelease error:{}", e.getMessage());
+        } finally {
+            try {
+                lock.unlock();
+            } catch (Exception e) {
+                logger.error("inputQueueRelease error:{}", e.getMessage());
+            }
+        }
+
+        // 停止选取空闲输入队列的线程池
+        executor.shutdownNow();
+    }
+
+    /**
+     * 选取剩余容量较大的队列
+     */
+    class ElectionIdleQueue implements Runnable {
+        @Override
+        public void run() {
+            int size = queueList.size();
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    if (size > 0) {
+                        int id = 0;
+                        int sz = Integer.MAX_VALUE;
+                        for (int i = 0; i < size; i++) {
+                            int ssz = queueList.get(i).size();
+                            if (ssz <= sz) {
+                                sz = ssz;
+                                id = i;
+                            }
+                        }
+                        pIndex.getAndSet(id);
+                    }
+                    Thread.sleep(SLEEP);
+                }
+            } catch (InterruptedException e) {
+                logger.error("选取空闲输入队列线程被中断...", e);
+            }
+        }
+    }
 }

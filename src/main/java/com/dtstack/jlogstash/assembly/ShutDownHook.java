@@ -17,6 +17,9 @@
  */
 package com.dtstack.jlogstash.assembly;
 
+import com.dtstack.jlogstash.assembly.pthread.FilterThread;
+import com.dtstack.jlogstash.assembly.pthread.InputThread;
+import com.dtstack.jlogstash.assembly.pthread.OutputThread;
 import com.dtstack.jlogstash.assembly.qlist.QueueList;
 import com.dtstack.jlogstash.filters.BaseFilter;
 import com.dtstack.jlogstash.inputs.BaseInput;
@@ -56,59 +59,71 @@ public class ShutDownHook {
     }
 
     public void addShutDownHook() {
-        Thread shut = new Thread(new ShutDownHookThread());
+        Thread shut = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                shutdown();
+            }
+        });
         shut.setDaemon(true);
         Runtime.getRuntime().addShutdownHook(shut);
         logger.debug("addShutDownHook success ...");
     }
 
-    class ShutDownHookThread implements Runnable {
-        private void inputRelease() {
-            try {
-                if (baseInputs != null) {
-                    for (BaseInput input : baseInputs) {
-                        input.release();
-                    }
-                }
-                logger.warn("inputRelease success...");
-            } catch (Exception e) {
-                logger.error("inputRelease error:{}", e.getMessage());
-            }
+    public void shutdown() {
+        inputRelease();
+        if (initInputQueueList != null) {
+            initInputQueueList.queueRelease();
         }
 
-        private void filterRelease() {
-            try {
-                if (baseFilters != null) {
-                    for (BaseFilter baseFilter : baseFilters) {
-                        baseFilter.release();
-                    }
-                }
-                logger.info("filterRelease success...");
-            } catch (Exception e) {
-                logger.error("filterRelease error", e);
-            }
+        filterRelease();
+        if (initOutputQueueList != null) {
+            initOutputQueueList.queueRelease();
         }
 
-        private void outPutRelease() {
-            try {
-                if (baseOutputs != null) {
-                    for (BaseOutput outPut : baseOutputs) {
-                        outPut.release();
-                    }
+        outPutRelease();
+    }
+
+    private void inputRelease() {
+        try {
+            if (baseInputs != null) {
+                for (BaseInput input : baseInputs) {
+                    input.release();
                 }
-                logger.warn("outPutRelease success...");
-            } catch (Exception e) {
-                logger.error("outPutRelease error:{}", e.getMessage());
             }
+
+            InputThread.shutDownExecutor();
+            logger.warn("inputRelease success...");
+        } catch (Exception e) {
+            logger.error("inputRelease error:{}", e.getMessage());
         }
+    }
 
+    private void outPutRelease() {
+        try {
+            if (baseOutputs != null) {
+                for (BaseOutput outPut : baseOutputs) {
+                    outPut.release();
+                }
+            }
+            OutputThread.shutDownExecutor();
+            logger.warn("outPutRelease success...");
+        } catch (Exception e) {
+            logger.error("outPutRelease error:{}", e.getMessage());
+        }
+    }
 
-        @Override
-        public void run() {
-            inputRelease();
-            if (initInputQueueList != null) initInputQueueList.queueRelease();
-            if (initOutputQueueList != null) initOutputQueueList.queueRelease();
-            outPutRelease();
+    private void filterRelease() {
+        try {
+            if (baseFilters != null) {
+                for (BaseFilter baseFilter : baseFilters) {
+                    baseFilter.release();
+                }
+            }
+            FilterThread.shutDownExecutor();
+            logger.info("filterRelease success...");
+        } catch (Exception e) {
+            logger.error("filterRelease error", e);
         }
     }
 }

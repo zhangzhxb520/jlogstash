@@ -101,7 +101,11 @@ public abstract class BaseOutput implements Cloneable, java.io.Serializable{
 				}
 			}
 			if (succuess) {
-				this.emit(event);
+				try {
+					this.emit(event);
+				} catch (Exception e) {
+					logger.error(String.format("%s：output event failed", event), e);
+				}
 			}
 		}
 	}
