@@ -27,6 +27,7 @@ import com.dtstack.jlogstash.exception.LogstashException;
 import com.dtstack.jlogstash.factory.InputFactory;
 import com.dtstack.jlogstash.filters.BaseFilter;
 import com.dtstack.jlogstash.inputs.BaseInput;
+import com.dtstack.jlogstash.monitor.ShutDownMonitor;
 import com.dtstack.jlogstash.outputs.BaseOutput;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
@@ -78,18 +79,19 @@ public class AssemblyPipeline {
         List<Map> filters = (List<Map>) configs.get("filters");
         baseInputs = InputFactory.getBatchInstance(inputs, initInputQueueList);
 
-        // 初始化需要完成的输入
-        ShutDownHelper.initInputCount(baseInputs.size());
+        // 初始化需要完成的过滤及输出线程数
+        ShutDownHelper.initOutputThreadCount(initOutputQueueList.getQueueList().size());
+        ShutDownHelper.initFilterThreadCount(initInputQueueList.getQueueList().size());
 
         // 开始运行
         InputThread.initInputThread(baseInputs);
         FilterThread.initFilterThread(filters, initInputQueueList, initOutputQueueList, allBaseFilters);
         OutputThread.initOutPutThread(outputs, initOutputQueueList, allBaseOutputs);
 
-        // 添加回调钩子
+        // 添加JVM退出回调钩子
         ShutDownHelper.addShutDownHook(initInputQueueList, initOutputQueueList, baseInputs, allBaseOutputs, allBaseFilters);
 
-        // 标识已完成初始化
-        ShutDownHelper.finishInit();
+        // 注册正常完成任务时退出Jlogstash的线程
+        ShutDownMonitor.finishInit();
     }
 }

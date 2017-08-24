@@ -17,13 +17,15 @@
  */
 package com.dtstack.jlogstash.assembly.pthread;
 
-import com.dtstack.jlogstash.assembly.ShutDownHelper;
 import com.dtstack.jlogstash.inputs.BaseInput;
+import com.dtstack.jlogstash.monitor.ShutDownMonitor;
 import com.dtstack.jlogstash.utils.ThreadPoolUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -38,6 +40,7 @@ public class InputThread implements Runnable {
     public static final String THREAD_NAME = "InputThread";
     public static final int CAPACITY = 5000;
     private static ExecutorService inputExecutor;
+    private static CyclicBarrier cyclicBarrier;
     private Logger logger = LoggerFactory.getLogger(InputThread.class);
     private BaseInput baseInput;
 
@@ -50,6 +53,8 @@ public class InputThread implements Runnable {
             inputExecutor = ThreadPoolUtil.newFixedThreadPool(baseInputs.size(), CAPACITY, THREAD_NAME);
         }
 
+        cyclicBarrier = new CyclicBarrier(baseInputs.size());
+
         for (BaseInput input : baseInputs) {
             inputExecutor.submit(new InputThread(input));
         }
@@ -57,7 +62,7 @@ public class InputThread implements Runnable {
 
     public static void shutDownExecutor() {
         if (inputExecutor != null) {
-            inputExecutor.shutdown();
+            inputExecutor.shutdownNow();
         }
     }
 
@@ -67,10 +72,26 @@ public class InputThread implements Runnable {
             logger.error("input plugin is not null");
             System.exit(1);
         }
+
+        baseInput.emit();
+
         try {
-            baseInput.emit();
-        } finally {
-            ShutDownHelper.decrease();
+            cyclicBarrier.await();; // 先完成的输入源在此等待
+        } catch (InterruptedException e) {
+            logger.error(baseInput + "输入源等待其它输入源时被中断", e);
+        } catch (BrokenBarrierException e) {
+            logger.error(baseInput + "输入源等待其它输入源时被打破栅栏", e);
         }
+
+        ShutDownMonitor.waitFinishInit();
+        ShutDownMonitor.startMonitor();
+
+        // 往输入队列投毒，用于提示并终止JLogstash
+        /*
+        while (!Thread.currentThread().isInterrupted()) {
+            baseInput.process(Constants.POISON);
+        }
+        logger.info(baseInput + "输入源已正常停止...");
+        */
     }
 }

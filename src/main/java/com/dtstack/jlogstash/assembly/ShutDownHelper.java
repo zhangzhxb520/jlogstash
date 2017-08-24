@@ -4,12 +4,14 @@ import com.dtstack.jlogstash.assembly.qlist.QueueList;
 import com.dtstack.jlogstash.filters.BaseFilter;
 import com.dtstack.jlogstash.inputs.BaseInput;
 import com.dtstack.jlogstash.outputs.BaseOutput;
+import com.dtstack.jlogstash.utils.ThreadPoolUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutorService;
 
 /**
  * 退出工具类
@@ -21,25 +23,51 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ShutDownHelper {
 
+    public static final String THREAD_NAME = "ShutDownThread";
     /** logger */
     private static final Logger LOGGER = LoggerFactory.getLogger(ShutDownHelper.class);
-
+    private static final Object FLAG_OBJ = new Object();
     /**
      * 关闭钩子
      */
     private static ShutDownHook shutDownHook;
 
-    private static AtomicInteger inputCount;
+    /**
+     * 输出线程闭锁，保证所有的输出线程任务全部完成
+     */
+    private static CountDownLatch outputCountDown;
 
-    private static CountDownLatch countDownLatch = new CountDownLatch(1);
+    /**
+     * 过滤线程闭锁，确保所有过滤线程任务完成
+     */
+    private static CountDownLatch filterCountDown;
 
-    public static void initInputCount(int inputCount) {
-        ShutDownHelper.inputCount = new AtomicInteger(inputCount);
+    private static ExecutorService singleExecutor = ThreadPoolUtil.newSingleThreadExecutor(5000, THREAD_NAME);
+
+    /**
+     * 记录已经CountDown过的线程，防止同一线程重复调用CountDown
+     */
+    private static ConcurrentHashMap<Object, Object> countDownMap = new ConcurrentHashMap<Object, Object>();
+
+    public static void initOutputThreadCount(int outputThreadsNum) {
+        ShutDownHelper.outputCountDown = new CountDownLatch(outputThreadsNum);
     }
 
-    public static void decrease() {
-        if (ShutDownHelper.inputCount.decrementAndGet() <= 0) {
-            normalExit(); // 输入源全部完成，正常退出程序
+    public static void initFilterThreadCount(int filterThreadNum) {
+        ShutDownHelper.filterCountDown = new CountDownLatch(filterThreadNum);
+    }
+
+    public static void decreaseOutput(Object obj) {
+        if (countDownMap.get(obj) != FLAG_OBJ) {
+            ShutDownHelper.outputCountDown.countDown();
+            countDownMap.put(obj, FLAG_OBJ);
+        }
+    }
+
+    public static void decreaseFilter(Object obj) {
+        if (countDownMap.get(obj) != FLAG_OBJ) {
+            ShutDownHelper.filterCountDown.countDown();
+            countDownMap.put(obj, FLAG_OBJ);
         }
     }
 
@@ -49,7 +77,7 @@ public class ShutDownHelper {
     private static void normalExit() {
         try {
             LOGGER.debug("等待所有组件初始化完成...");
-            countDownLatch.await();
+            outputCountDown.await();
             LOGGER.debug("所有组件已初始化完成...");
         } catch (InterruptedException e) {
             LOGGER.error("等待组件初始化完成被中断...", e);
@@ -102,9 +130,22 @@ public class ShutDownHelper {
     }
 
     /**
-     * 表示已完成初始化工作
+     * 注册正常退出关闭线程
      */
-    public static void finishInit() {
-        countDownLatch.countDown();
+    public static void registerNormalExitThread() {
+        singleExecutor.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 当所有输出线程完成任务时开始关闭JLogstash
+                    ShutDownHelper.outputCountDown.await();
+                    // ShutDownHelper.filterCountDown.await();
+                    ShutDownHelper.shutDown();
+                } catch (InterruptedException e) {
+                    LOGGER.error("ShutDownThread等待输入线程完成时被中断", e);
+                }
+            }
+        });
+        LOGGER.debug("start ShutDownThread success...");
     }
 }

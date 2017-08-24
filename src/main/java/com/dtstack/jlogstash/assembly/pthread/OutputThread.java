@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Reason: TODO ADD REASON(可选)
@@ -41,7 +41,7 @@ public class OutputThread implements Runnable {
     public static final String THREAD_NAME = "OutputThread";
     public static final int QUEUE_CAPACITY = 5000;
     private static Logger logger = LoggerFactory.getLogger(OutputThread.class);
-    private static ExecutorService outputExecutor;
+    private static ThreadPoolExecutor outputExecutor;
     private List<BaseOutput> outputProcessors;
     private BlockingQueue<Map<String, Object>> outputQueue;
 
@@ -49,6 +49,10 @@ public class OutputThread implements Runnable {
     public OutputThread(List<BaseOutput> outputProcessors, BlockingQueue<Map<String, Object>> outputQueue) {
         this.outputProcessors = outputProcessors;
         this.outputQueue = outputQueue;
+    }
+
+    public static ThreadPoolExecutor getOutputExecutor(){
+        return outputExecutor;
     }
 
     @SuppressWarnings("rawtypes")

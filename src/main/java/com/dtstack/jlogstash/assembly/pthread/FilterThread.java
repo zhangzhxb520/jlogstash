@@ -22,6 +22,7 @@ import com.dtstack.jlogstash.assembly.qlist.OutPutQueueList;
 import com.dtstack.jlogstash.callback.FilterThreadSetter;
 import com.dtstack.jlogstash.factory.FilterFactory;
 import com.dtstack.jlogstash.filters.BaseFilter;
+import com.dtstack.jlogstash.monitor.ShutDownMonitor;
 import com.dtstack.jlogstash.utils.ThreadPoolUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -45,14 +46,27 @@ public class FilterThread implements Runnable {
     public static final String THREAD_NAME = "FilterThread";
     private static Logger logger = LoggerFactory.getLogger(FilterThread.class);
     private static OutPutQueueList outPutQueueList;
-    private static ExecutorService filterExecutor;
+    private static ThreadPoolExecutor filterExecutor;
     private BlockingQueue<Map<String, Object>> inputQueue;
     private List<BaseFilter> filterProcessors;
     private static AtomicInteger inFilterEventCount = new AtomicInteger(0);
 
+
     public FilterThread(List<BaseFilter> filterProcessors, BlockingQueue<Map<String, Object>> inputQueue) {
         this.filterProcessors = filterProcessors;
         this.inputQueue = inputQueue;
+    }
+
+    public static ThreadPoolExecutor getFilterExecutor(){
+        return filterExecutor;
+    }
+
+    public static OutPutQueueList getOutPutQueueList(){
+        return outPutQueueList;
+    }
+
+    public static AtomicInteger getInFilterEventCount() {
+        return inFilterEventCount;
     }
 
     @SuppressWarnings("rawtypes")
@@ -87,16 +101,6 @@ public class FilterThread implements Runnable {
 
     public static void shutDownExecutor() {
         if (filterExecutor != null) {
-            // 如果还有event正在filter中被处理时，将一直等待所有的FilterThread将任务处理完成
-            while (inFilterEventCount.get() > 0){
-                try {
-                    Thread.sleep(5);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            // 此时所有的FilterThread阻塞在this.inputQueue.take()片，利用中断退出线程
             filterExecutor.shutdownNow();
         }
     }
@@ -107,7 +111,10 @@ public class FilterThread implements Runnable {
             A:
             while (!Thread.currentThread().isInterrupted()) {
                 Map<String, Object> event = this.inputQueue.take();
-                inFilterEventCount.incrementAndGet();
+                if (ShutDownMonitor.shouldCheckEventInFilter) {
+                    inFilterEventCount.incrementAndGet();
+                }
+
                 if (filterProcessors != null) {
                     for (BaseFilter bf : filterProcessors) {
                         if (event == null || event.size() == 0)
@@ -115,8 +122,13 @@ public class FilterThread implements Runnable {
                         event = bf.process(event);
                     }
                 }
-                inFilterEventCount.decrementAndGet();
-                if (event != null) outPutQueueList.put(event);
+                if (event != null) {
+                    outPutQueueList.put(event);
+                }
+
+                if (ShutDownMonitor.shouldCheckEventInFilter) {
+                    inFilterEventCount.decrementAndGet();
+                }
             }
         } catch (InterruptedException e) {
             logger.error("FilterThread被中断", e);
