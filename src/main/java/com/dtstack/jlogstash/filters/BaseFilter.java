@@ -36,10 +36,10 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
 
     private static final long serialVersionUID = -6525215605315577598L;
     private static final Logger logger = LoggerFactory.getLogger(BaseFilter.class);
-    private static final Object NULL = new Object();
     protected Map config;
     protected String tagOnFailure;
     protected String IF;
+    protected boolean hasIF;
     protected ArrayList<String> removeFields;
 
     public BaseFilter(Map config) {
@@ -49,6 +49,12 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
         } else {
             this.tagOnFailure = null;
         }
+
+        String ifValue = (String) config.get("IF");
+        if (ifValue != null){
+            this.IF = ifValue;
+            this.hasIF = true;
+        }
     }
 
     public abstract void prepare();
@@ -57,7 +63,7 @@ public abstract class BaseFilter implements Cloneable, java.io.Serializable {
         if (event != null && event.size() > 0) {
             try {
                 boolean forward = true;
-                if (IF != null && IF.length() > 0) {
+                if (hasIF) {
                     Object ifValue = event.get(IF);
                     if (ifValue == null || ifValue == Boolean.FALSE) {
                         forward = false;
